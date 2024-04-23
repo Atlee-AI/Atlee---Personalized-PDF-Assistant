@@ -373,15 +373,13 @@ if __name__ == "__main__":
         if "name" in st.session_state:
             st.sidebar.write(f'Welcome *{st.session_state["name"]}*')
             
-            uploaded_file = st.file_uploader("Upload an article", type=("txt", "md", "pdf"))
+            uploaded_file = st.file_uploader("Upload an article", type=("txt", "pdf", "png", "jpeg"))
 
             if uploaded_file is not None:
-
-                file_contents = uploaded_file.read()
                 
                 FILE_NAME = "files/"+ st.session_state["username"] + "_"+ uploaded_file.name
                 with open(FILE_NAME, "wb") as f:
-                    f.write(file_contents)
+                    f.write( uploaded_file.read())
 
                 st.success("File saved successfully!")
                 
@@ -389,7 +387,7 @@ if __name__ == "__main__":
                 if hasattr(st.session_state, 'messages'):
                     st.session_state.messages.append({"role": "ai", "content": "Bye"})
             
-            if prompt := st.chat_input("Say something"):
+            if prompt := st.chat_input("Let me know what's in your Mind"):
                 st.session_state.messages.append({"role": "user", "content": prompt})
 
 

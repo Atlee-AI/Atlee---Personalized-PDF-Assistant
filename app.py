@@ -28,7 +28,7 @@ if __name__ == '__main__':
         if "name" in st.session_state:
             st.sidebar.write(f'Welcome *{st.session_state["name"]}*')
             
-            uploaded_file = st.file_uploader("Upload an article", type=("txt", "md", "pdf"))
+            uploaded_file = st.file_uploader("Upload an article", type=("txt", "pdf", "png", "jpeg"))
 
             if uploaded_file is not None:
 
@@ -39,9 +39,7 @@ if __name__ == '__main__':
 
                 st.success("File saved successfully!")
             
-            if prompt := st.chat_input("Say something"):
-                with st.chat_message("user"):
-                    st.markdown(prompt)
+            if prompt := st.chat_input("Let me know what's in your Mind"):
                 st.session_state.messages.append({"role": "user", "content": prompt})
 
 
@@ -50,7 +48,7 @@ if __name__ == '__main__':
                 prompt = f"""{anthropic.HUMAN_PROMPT} Here's an article:\n\n
                 {article}\n\n\n\n{prompt}{anthropic.AI_PROMPT}"""
 
-                client = anthropic.Client(api_key="")
+                client = anthropic.Client(api_key="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")
                 response = client.completions.create(
                     prompt=prompt,
                     stop_sequences=[anthropic.HUMAN_PROMPT],
