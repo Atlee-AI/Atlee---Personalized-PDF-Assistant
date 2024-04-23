@@ -9,6 +9,7 @@ uuid
 langchain-pinecone
 langchain-openai
 langchain
+langchain-community
 unstructured[all-docs]
 pydantic
 lxml
