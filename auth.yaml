@@ -1,0 +1,16 @@
+credentials:
+  usernames:
+    n:
+      email: n@g.com
+      failed_login_attempts: 0 
+      logged_in: False 
+      name: NC
+      password: aaa
+cookie:
+  expiry_days: 30
+  key: some_signature_key 
+  name: some_cookie_name
+pre-authorized:
+  emails:
+  - abc@gmail.com
+  - n@g.com
