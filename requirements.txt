@@ -20,3 +20,4 @@ browser-history
 langchain-anthropic
 pytesseract
 python-dotenv
+streamlit-authenticator
