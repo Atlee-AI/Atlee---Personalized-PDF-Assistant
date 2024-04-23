@@ -18,5 +18,4 @@ unstructured==0.12.5
 browser-history
 langchain-anthropic
 pytesseract
-tesseract-ocr
 python-dotenv
