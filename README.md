@@ -17,7 +17,9 @@ Atlee stands as a cutting-edge Streamlit application, harnessing the prowess of 
 
 ## How to Use
 
-## Start the Application: Launch the Streamlit application by running the command:
+## Start the Application: 
+
+**Launch the Streamlit application by running the command:**
 
 streamlit run <path_to_script.py>
 Replace <path_to_script.py> with the path to the script file.
