@@ -123,7 +123,7 @@ def get_one_line_interest_from_history(search_titles, intrest_from_user):
         template=prompt_text,
     )
     interest_chain = LLMChain(
-        llm=ChatAI21(model="j2-ultra", temperature = 0.7, max_tokens=8190),
+        llm=chat_model,
         prompt=prompt,
         verbose=False
     )
@@ -248,7 +248,7 @@ def get_overall_summary(raw_data):
   summary_chain = (
       {"data": RunnablePassthrough()}
       | prompt
-      | ChatAI21(model="j2-ultra", temperature = 0.7, max_tokens=8190)
+      | chat_model
       | StrOutputParser()
   )
   return [summary_chain.invoke(raw_data)]
@@ -300,7 +300,7 @@ def store_pdf_in_pinecone(file_name, index_name, embeddings):
         for i, s in enumerate(img_ids)
     ]
     
-    processed_document = text_docs + table_docs + img_summary_docs
+    # processed_document = text_docs + table_docs + img_summary_docs
 
     vector_store = PineconeVectorStore(embedding=embeddings, index_name=index_name)
     store = InMemoryStore()
@@ -347,8 +347,8 @@ def get_personalized_output(question, retriever, chat_model, user_personas, user
     prompt_template="""
     {chat_history}
     
-    Answer the question based on the following context, which can include text and tables:
-    {context} - use your memory to remember previous conversations if the context is empty.
+    Answer the question based on the following context (if context is empty refer previous conversation), which may or may not include texts and tables:
+    {context}.
     
     Question:
     {question}
@@ -393,6 +393,7 @@ def get_personalized_output(question, retriever, chat_model, user_personas, user
 
 
 def main():
+    global retriever_obj
     authenticator.login()
     create_pinecone_index(PINECONE_INDEX_NAME)
 
@@ -431,7 +432,7 @@ def main():
                 
             if "messages" not in st.session_state:
                 st.session_state.messages = []
-                st.session_state.retriever = None
+                st.session_state.retriever = []
                 st.session_state.counter = 0
             
             for message in st.session_state.messages:
@@ -445,19 +446,25 @@ def main():
 
             if uploaded_file and prompt:
                 query = prompt
-                retriever = st.session_state.retriever
+                retriever = retriever_obj or []
                 if st.session_state.counter == 0:
                     retriever = store_pdf_in_pinecone(FILE_NAME, PINECONE_INDEX_NAME, embeddings)
-                st.session_state.retriever = retriever
-                retriever.search_type = SearchType.mmr
-                response = retriever.vectorstore.similarity_search_with_relevance_scores(query)
+                    retriever.search_type = SearchType.mmr
+                    retriever_obj = retriever
+                time.sleep(5)
+                response = retriever.vectorstore.similarity_search_with_score(query)
                 df = pd.read_csv('out.csv')
                 interests = get_interests(df, interest_from_user)
                 user_personas[user_id]["web_interests"] = interests
-                if response and response[0][1] < 0.1:
-                    response = ''
+                print("response", end="\n")
+                print(response)
+                if response:
+                    if response[0][1] < 0.1:
+                        response = ''
+                    else:
+                        response = [response[i][0].page_content for i in range(len(response))]
                 else:
-                    response = [response[i][0].page_content for i in range(len(response))]
+                    response = ''
                 result = get_personalized_output(query, response, chat_model, user_personas, user_id)
                 with st.chat_message("ai"):
                     st.markdown(result)
@@ -483,4 +490,5 @@ def main():
 
 
 if __name__ == "__main__":
+    retriever_obj = None
     main()
