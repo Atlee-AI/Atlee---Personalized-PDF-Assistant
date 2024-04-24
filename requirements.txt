@@ -20,6 +20,6 @@ pillow
 unstructured==0.12.5
 browser-history
 pytesseract
-python-dotenv
+langchain_ai21
 python-dotenv
 streamlit-authenticator
