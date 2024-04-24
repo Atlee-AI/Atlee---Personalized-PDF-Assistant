@@ -71,7 +71,7 @@ user_personas = {}
 user_id = str(uuid.uuid4())
 user_personas[user_id] = {}
 
-dir_path = os.getcwd() + '\\.env'
+dir_path = os.getcwd() + '/.env'
 load_dotenv(dir_path)
 
 interests = ''
@@ -371,7 +371,26 @@ if __name__ == "__main__":
 
     if st.session_state["authentication_status"]:
         if "name" in st.session_state:
-            st.sidebar.write(f'Welcome *{st.session_state["name"]}*')
+            st.sidebar.header(f'Welcome *{st.session_state["name"]}*')
+            st.sidebar.divider()
+
+            with open("interests.txt", "r") as line:
+                interests = line.readline().split(',')
+            
+            interests.sort()
+            
+            interest_from_user = st.sidebar.multiselect(
+                'Choose Interest to Personlize your AI',
+                interests,
+            )
+
+            print(interest_from_user)
+            
+            col, _ = st.sidebar.columns(2)
+
+            with col:
+                authenticator.logout()
+                
             
             uploaded_file = st.file_uploader("Upload an article", type=("txt", "pdf", "png", "jpeg"))
 
