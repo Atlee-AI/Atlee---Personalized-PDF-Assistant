@@ -2,6 +2,11 @@
 
 Atlee stands as a cutting-edge Streamlit application, harnessing the prowess of Anthropics advanced Generative AI, particularly the Claude model. It's your gateway to extracting and analyzing text, images and tables from PDF documents, utilizing a sophisticated Retrieval-Augmented Generation (RAG) technique. This enables precise, contextually rich responses to user queries, all derived from the content of uploaded documents.
 
+## Architecture
+
+![image](https://github.com/Atlee-AI/Atlee---Personalized-PDF-Assistant/assets/144879155/df345663-6a34-4586-b496-a0a60456ce89)
+
+
 ## Features
 
 - **Instant Insights**: Extracts and analyses text, images and tables from uploaded PDF documents to provide instant insights.
