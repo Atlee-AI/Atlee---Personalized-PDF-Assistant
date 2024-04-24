@@ -2,7 +2,7 @@ from dotenv import load_dotenv
 
 from pinecone import Pinecone, ServerlessSpec
 
-from langchain.memory import ConversationBufferMemory
+from langchain.memory import ConversationBufferWindowMemory
 from langchain.chains import ConversationChain, LLMChain
 
 from langchain_community.embeddings import HuggingFaceEmbeddings
@@ -76,7 +76,7 @@ user_personas = {}
 user_id = str(uuid.uuid4())
 user_personas[user_id] = {}
 
-dir_path = os.getcwd() + '\\.env'
+dir_path = os.getcwd() + '/.env'
 load_dotenv(dir_path)
 
 interests = ''
@@ -92,7 +92,7 @@ LLAMA_API_KEY='LL-w5KOiBu1f11QJb7xYGk0iQ32LXkpt8pEdJmLrraHEDG6hg4h7E0XB5Kc5TygtE
 
 EMBEDDING_MODEL="sentence-transformers/all-mpnet-base-v2"
 LLAMA_MODEL = "meta-llama/Llama-2-7b-chat-hf"
-CHAT_MODEL='claude-3-haiku-20240307'
+CHAT_MODEL='claude-3-opus-20240229'
 IMAGE_MEDIA_TYPE='image/jpeg'
 
 anthropic_client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
@@ -104,22 +104,39 @@ embeddings = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL)
 pc = Pinecone(api_key=PINECONE_API_KEY)
 processed_document = []
 
-def get_one_line_interest_from_history(search_titles):
+def get_one_line_interest_from_history(search_titles, intrest_from_user):
     prompt_text="""
     {search_titles}
     
-    These are the recent search history titles of a person, give a concise overall interest of the above person in only one line.
+    These are the recent search history titles of a person.
+    
+    {intrest_from_user}
+    These are the interests that the person has chosen manually when asked.
+    
+    Give a concise overall interest of the above person in only one line in readable form.
     """
-    prompt = ChatPromptTemplate.from_template(prompt_text)
-    interest_chain = (
-        {"search_titles": lambda x : x}
-        | prompt
-        | chat_model
-        | StrOutputParser()
+    prompt = PromptTemplate(
+        input_variables=[
+            "search_titles",
+            "intrest_from_user",
+        ],
+        template=prompt_text,
     )
-    return interest_chain.invoke(search_titles)
+    interest_chain = LLMChain(
+        llm=ChatAI21(model="j2-ultra", temperature = 0.7, max_tokens=8190),
+        prompt=prompt,
+        verbose=False
+    )
+    
+    return interest_chain.invoke(
+        {
+            "search_titles": search_titles,
+            "intrest_from_user": intrest_from_user,
+        },
+        return_only_outputs=True
+    )['text']
 
-def get_interests(df):
+def get_interests(df, interest_from_user):
     sorted_df = df.sort_values(by='Timestamp', ascending=False)
     if len(sorted_df)>100:
       nrows = len(sorted_df)/20
@@ -129,7 +146,7 @@ def get_interests(df):
     elif len(sorted_df)<10:
       top_df = sorted_df.iloc[:len(sorted_df)]
 
-    interests = get_one_line_interest_from_history(top_df['Title'].tolist())
+    interests = get_one_line_interest_from_history(top_df['Title'].tolist(), interest_from_user)
     return interests
 
 
@@ -138,22 +155,22 @@ class Element(BaseModel):
     text: Any
 
 def create_pinecone_index(index_name):
-    index_name = index_name
     existing_indexes = [
         index_info["name"] for index_info in pc.list_indexes()
     ]
-    if index_name not in existing_indexes:
-        pc.create_index(
-            index_name,
-            dimension=768,
-            metric='cosine',
-            spec=ServerlessSpec(
-                cloud="aws",
-                region="us-east-1",
-            ),
-        )
-        while not pc.describe_index(index_name).status['ready']:
-            time.sleep(1)
+    if index_name in existing_indexes:
+        pc.delete_index(index_name)
+    pc.create_index(
+        index_name,
+        dimension=768,
+        metric='cosine',
+        spec=ServerlessSpec(
+            cloud="aws",
+            region="us-east-1",
+        ),
+    )
+    while not pc.describe_index(index_name).status['ready']:
+        time.sleep(1)
 
     index = pc.Index(index_name)
     time.sleep(1)
@@ -185,7 +202,7 @@ def fetch_local_image(image_path):
 
 def get_image_summaries_from_anthropic(image_media_type, local_image):
   message = anthropic_client.messages.create(
-      model="claude-3-haiku-20240307",
+      model="claude-3-opus-20240229",
       max_tokens=1024,
       messages=[
           {
@@ -231,7 +248,7 @@ def get_overall_summary(raw_data):
   summary_chain = (
       {"data": RunnablePassthrough()}
       | prompt
-      | chat_model
+      | ChatAI21(model="j2-ultra", temperature = 0.7, max_tokens=8190)
       | StrOutputParser()
   )
   return [summary_chain.invoke(raw_data)]
@@ -331,7 +348,7 @@ def get_personalized_output(question, retriever, chat_model, user_personas, user
     {chat_history}
     
     Answer the question based on the following context, which can include text and tables:
-    {context}
+    {context} - use your memory to remember previous conversations if the context is empty.
     
     Question:
     {question}
@@ -351,9 +368,10 @@ def get_personalized_output(question, retriever, chat_model, user_personas, user
         template=prompt_template,
     )
     
-    memory=ConversationBufferMemory(
+    memory=ConversationBufferWindowMemory(
         memory_key="chat_history",
         input_key="question",
+        k=3,
     )
     
     chain = LLMChain(
@@ -380,7 +398,26 @@ def main():
 
     if st.session_state["authentication_status"]:
         if "name" in st.session_state:
-            st.sidebar.write(f'Welcome *{st.session_state["name"]}*')
+            st.sidebar.header(f'Welcome *{st.session_state["name"]}*')
+            st.sidebar.divider()
+
+            with open("interests.txt", "r") as line:
+                interests = line.readline().split(',')
+            
+            interests.sort()
+            
+            interest_from_user = st.sidebar.multiselect(
+                'Choose Interest to Personlize your AI',
+                interests,
+            )
+
+            print(interest_from_user)
+            
+            col, _ = st.sidebar.columns(2)
+
+            with col:
+                authenticator.logout()
+                
             
             uploaded_file = st.file_uploader("Upload an article", type=("txt", "pdf", "png", "jpeg"))
 
@@ -394,7 +431,7 @@ def main():
                 
             if "messages" not in st.session_state:
                 st.session_state.messages = []
-                st.session_state.response = []
+                st.session_state.retriever = None
                 st.session_state.counter = 0
             
             for message in st.session_state.messages:
@@ -408,18 +445,20 @@ def main():
 
             if uploaded_file and prompt:
                 query = prompt
-                print(st.session_state.counter)
+                retriever = st.session_state.retriever
                 if st.session_state.counter == 0:
                     retriever = store_pdf_in_pinecone(FILE_NAME, PINECONE_INDEX_NAME, embeddings)
-                    retriever.search_type = SearchType.mmr
-                    response = retriever.vectorstore.similarity_search(query)
-                    response = [response[i].page_content for i in range(len(response))]
-                    st.session_state.response = response
+                st.session_state.retriever = retriever
+                retriever.search_type = SearchType.mmr
+                response = retriever.vectorstore.similarity_search_with_relevance_scores(query)
                 df = pd.read_csv('out.csv')
-                interests = get_interests(df)
+                interests = get_interests(df, interest_from_user)
                 user_personas[user_id]["web_interests"] = interests
-                recent_response = st.session_state.response
-                result = get_personalized_output(query, recent_response, chat_model, user_personas, user_id)
+                if response and response[0][1] < 0.1:
+                    response = ''
+                else:
+                    response = [response[i][0].page_content for i in range(len(response))]
+                result = get_personalized_output(query, response, chat_model, user_personas, user_id)
                 with st.chat_message("ai"):
                     st.markdown(result)
                 st.session_state.messages.append({"role": "ai", "content": result})
