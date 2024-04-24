@@ -12,7 +12,7 @@ Atlee stands as a cutting-edge Streamlit application, harnessing the prowess of 
 
 ### Prerequisites
 
-- Anthropic API Key: Obtain a Claude API key to interact with Claude Generative AI models. Visit [Google API Key Setup](https://makersuite.google.com/app/apikey) to get your key.
+- Anthropic API Key: Obtain a Claude API key to interact with Claude Generative AI models. Visit [Anthropic API Key Setup]([https://docs.anthropic.com/claude/docs/getting-access-to-claude]) to get your key.
 - Streamlit: This application is built with Streamlit. Ensure you have Streamlit installed in your environment.
 
 ### Installation
